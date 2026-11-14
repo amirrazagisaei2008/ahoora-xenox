@@ -303,13 +303,24 @@
   .lock-card .logo { margin: 0 auto 14px; }
   .lock-card h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
   .lock-card p { font-size: 12.5px; color: var(--text-dim); margin-bottom: 16px; }
+  .lock-pass-wrap { position: relative; margin-bottom: 10px; }
   .lock-card input {
     text-align: center; direction: ltr;
-    letter-spacing: 2px; margin-bottom: 10px;
+    letter-spacing: 2px; margin-bottom: 0;
+    padding-left: 42px; padding-right: 42px;
     font-family: var(--mono);
   }
+  .lock-eye {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 30px; border: 0; border-radius: 8px;
+    background: transparent; color: var(--text-dim); cursor: pointer;
+    display: grid; place-items: center; transition: color 0.15s, background 0.15s;
+  }
+  .lock-eye:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+  .lock-eye svg { width: 17px; height: 17px; }
   .lock-card .btn { width: 100%; }
-  .lock-err { font-size: 12px; color: var(--danger); min-height: 20px; margin-top: 8px; }
+  .lock-err { font-size: 12px; color: var(--danger); min-height: 20px; margin-top: 8px; line-height: 1.6; }
+  .lock-err.warn { color: var(--warn); }
   .shake { animation: shake 0.38s ease; }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
@@ -335,7 +346,7 @@
     box-shadow: var(--shadow);
     opacity: 0; pointer-events: none;
     transition: opacity 0.22s, transform 0.22s;
-    z-index: 50; max-width: 90vw;
+    z-index: 150; max-width: 90vw;
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast.ok { border-color: rgba(32, 201, 151, 0.5); }
@@ -376,8 +387,16 @@
     </div>
     <h1>ورود به پنل</h1>
     <p>برای ادامه رمز عبور را وارد کنید</p>
-    <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" />
-    <button class="btn primary" type="submit">ورود</button>
+    <div class="lock-pass-wrap">
+      <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <button class="lock-eye" id="togglePass" type="button" aria-label="نمایش یا مخفی کردن رمز" title="نمایش/مخفی کردن رمز">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+    <button class="btn primary" id="btnLogin" type="submit">ورود</button>
     <div class="lock-err" id="lockErr"></div>
   </form>
 </div>
@@ -1091,50 +1110,58 @@ function generateWireGuard() {
   setBusy(btn, true);
   var bar = $("#wgProgress");
   bar.style.width = "0%";
-  setTimeout(function () { bar.style.width = "55%"; }, 60);
 
-  setTimeout(function () {
-    var kp = genKeypair();          /* جفت‌کلید واقعیِ کاربر */
-    var peerKp = genKeypair();      /* کلید عمومی تصادفیِ سمت مقابل */
-    var prefixes = v4Prefixes[code] || ["94.100"];
+  verifyActiveSession(true).then(function (ok) {
+    if (!ok) {
+      setBusy(btn, false);
+      return;
+    }
 
-    var addressV4 = randV4(prefixes);
-    var addressV6 = randV6(pick(v6Prefixes));
-    var endpoint = randV4(prefixes) + ":" + pick(WG_PORTS);
+    setTimeout(function () { bar.style.width = "55%"; }, 60);
 
-    var obj = {
-      privateKey: kp.priv,
-      publicKey: kp.pub,
-      peerPublicKey: peerKp.pub,
-      addressV4: addressV4,
-      addressV6: addressV6,
-      endpoint: endpoint,
-      dns: dns,
-      mtu: mtu,
-      countryCode: country.code,
-      countryName: country.name,
-      ping: pings[code],
-      createdAt: new Date().toISOString()
-    };
+    setTimeout(function () {
+      var kp = genKeypair();          /* جفت‌کلید واقعیِ کاربر */
+      var peerKp = genKeypair();      /* کلید عمومی تصادفیِ سمت مقابل */
+      var prefixes = v4Prefixes[code] || ["94.100"];
 
-    var conf = buildConf(obj);
-    state.wg = { obj: obj, conf: conf, txt: buildTxt(obj, conf) };
+      var addressV4 = randV4(prefixes);
+      var addressV6 = randV6(pick(v6Prefixes));
+      var endpoint = randV4(prefixes) + ":" + pick(WG_PORTS);
 
-    $("#wgOut").textContent = conf;
-    $("#wgMeta").innerHTML = [
-      '<span class="chip ok">' + country.name + " " + country.flag + "</span>",
-      '<span class="chip">' + endpoint + "</span>",
-      '<span class="chip">' + pings[code] + " ms</span>",
-      '<span class="chip">MTU ' + mtu + "</span>"
-    ].join("");
-    $("#wgResult").classList.remove("hidden");
-    $("#wgResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      var obj = {
+        privateKey: kp.priv,
+        publicKey: kp.pub,
+        peerPublicKey: peerKp.pub,
+        addressV4: addressV4,
+        addressV6: addressV6,
+        endpoint: endpoint,
+        dns: dns,
+        mtu: mtu,
+        countryCode: country.code,
+        countryName: country.name,
+        ping: pings[code],
+        createdAt: new Date().toISOString()
+      };
 
-    bar.style.width = "100%";
-    setTimeout(function () { bar.style.width = "0%"; }, 900);
-    toast("کانفیگ برای " + country.name + " ساخته شد ✅", "ok");
-    setBusy(btn, false);
-  }, 260);
+      var conf = buildConf(obj);
+      state.wg = { obj: obj, conf: conf, txt: buildTxt(obj, conf) };
+
+      $("#wgOut").textContent = conf;
+      $("#wgMeta").innerHTML = [
+        '<span class="chip ok">' + country.name + " " + country.flag + "</span>",
+        '<span class="chip">' + endpoint + "</span>",
+        '<span class="chip">' + pings[code] + " ms</span>",
+        '<span class="chip">MTU ' + mtu + "</span>"
+      ].join("");
+      $("#wgResult").classList.remove("hidden");
+      $("#wgResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      bar.style.width = "100%";
+      setTimeout(function () { bar.style.width = "0%"; }, 900);
+      toast("کانفیگ برای " + country.name + " ساخته شد ✅", "ok");
+      setBusy(btn, false);
+    }, 260);
+  });
 }
 
 $("#btnGenWg").addEventListener("click", generateWireGuard);
@@ -1223,41 +1250,49 @@ function generateDnsList() {
   setBusy(btn, true, " در حال ساخت...");
   var bar = $("#dnsProgress");
   bar.style.width = "0%";
-  setTimeout(function () { bar.style.width = "60%"; }, 60);
 
-  setTimeout(function () {
-    var lines = [];
-    var seen = Object.create(null);
-    var guard = 0;
-    while (lines.length < count && guard++ < count * 40) {
-        var prefixes = v4Prefixes[state.selected.dns] || ["94.100"];
-      var ip = randV4(prefixes);   /* IPv4 تصادفی در محدوده‌ی کشور انتخابی */
-
-      if (seen[ip]) continue;
-      seen[ip] = 1;
-      lines.push(ip);
+  verifyActiveSession(true).then(function (ok) {
+    if (!ok) {
+      setBusy(btn, false);
+      return;
     }
 
-    var text = lines.join("\n") + "\n";
-    state.dns = { list: lines, text: text };
+    setTimeout(function () { bar.style.width = "60%"; }, 60);
 
-    var name = safeName($("#dnsName").value, "dns_list");
-    download(name + ".txt", text, "text/plain");
+    setTimeout(function () {
+      var lines = [];
+      var seen = Object.create(null);
+      var guard = 0;
+      while (lines.length < count && guard++ < count * 40) {
+        var prefixes = v4Prefixes[state.selected.dns] || ["94.100"];
+        var ip = randV4(prefixes);   /* IPv4 تصادفی در محدوده‌ی کشور انتخابی */
 
-    $("#dnsMeta").innerHTML = [
-      '<span class="chip ok">' + lines.length + " آدرس</span>",
-      '<span class="chip">IPv4</span>',
-      '<span class="chip">' + name + ".txt</span>"
-    ].join("");
-    $("#dnsOut").textContent = lines.slice(0, 40).join("\n");
-    $("#dnsResult").classList.remove("hidden");
-    $("#dnsResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (seen[ip]) continue;
+        seen[ip] = 1;
+        lines.push(ip);
+      }
 
-    bar.style.width = "100%";
-    setTimeout(function () { bar.style.width = "0%"; }, 900);
-    toast("فایل TXT با " + lines.length + " آدرس دانلود شد ✅", "ok");
-    setBusy(btn, false);
-  }, 300);
+      var text = lines.join("\n") + "\n";
+      state.dns = { list: lines, text: text };
+
+      var name = safeName($("#dnsName").value, "dns_list");
+      download(name + ".txt", text, "text/plain");
+
+      $("#dnsMeta").innerHTML = [
+        '<span class="chip ok">' + lines.length + " آدرس</span>",
+        '<span class="chip">IPv4</span>',
+        '<span class="chip">' + name + ".txt</span>"
+      ].join("");
+      $("#dnsOut").textContent = lines.slice(0, 40).join("\n");
+      $("#dnsResult").classList.remove("hidden");
+      $("#dnsResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      bar.style.width = "100%";
+      setTimeout(function () { bar.style.width = "0%"; }, 900);
+      toast("فایل TXT با " + lines.length + " آدرس دانلود شد ✅", "ok");
+      setBusy(btn, false);
+    }, 300);
+  });
 }
 
 $("#btnGenDns").addEventListener("click", generateDnsList);
@@ -1270,18 +1305,85 @@ $("#btnCopyDns").addEventListener("click", function () {
 });
 
 /* =========================================================
-   ۸) قفل ورود به پنل
+   ۸) قفل ورود به پنل (احراز هویت سراسری از سرور)
    ========================================================= */
-var PANEL_PASS = "AT_SERVER";
-var AUTH_KEY = "ahoora_auth";
+var AUTH_TOKEN_KEY = "ahoora_panel_token";
+var SESSION_POLL_MS = 30000;
+var sessionPollTimer = null;
+var lastPassiveCheckAt = 0;
+
+function getSavedToken() {
+  try { return sessionStorage.getItem(AUTH_TOKEN_KEY) || ""; }
+  catch (e) { return ""; }
+}
+
+function saveToken(token) {
+  try {
+    if (token) sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch (e) { /* حالت‌های محدود مرورگر */ }
+}
+
+function setLockMessage(msg, isWarn) {
+  var el = $("#lockErr");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.toggle("warn", Boolean(isWarn));
+}
+
+function apiFetch(url, opts) {
+  opts = opts || {};
+  var headers = Object.assign({ "Accept": "application/json" }, opts.headers || {});
+  var token = getSavedToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  if (opts.body && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  return fetch(url, {
+    method: opts.method || "GET",
+    headers: headers,
+    body: opts.body,
+    credentials: "same-origin",
+    cache: "no-store"
+  }).then(function (res) {
+    return res.text().then(function (text) {
+      var data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) {}
+      return { ok: res.ok, status: res.status, data: data };
+    });
+  });
+}
+
+function startSessionHeartbeat() {
+  stopSessionHeartbeat();
+  sessionPollTimer = setInterval(function () {
+    if (!document.hidden && !document.body.classList.contains("locked")) {
+      verifyActiveSession(false);
+    }
+  }, SESSION_POLL_MS);
+}
+
+function stopSessionHeartbeat() {
+  if (sessionPollTimer) {
+    clearInterval(sessionPollTimer);
+    sessionPollTimer = null;
+  }
+}
 
 function unlockPanel() {
   document.body.classList.remove("locked");
+  setLockMessage("", false);
   var el = $("#pass");
-  if (el) el.value = "";
+  if (el) {
+    el.value = "";
+    el.type = "password";
+  }
+  startSessionHeartbeat();
 }
 
-function lockPanel() {
+function lockPanel(message, isWarn) {
+  stopSessionHeartbeat();
   document.body.classList.add("locked");
   state.wg = null;
   state.dns = null;
@@ -1289,43 +1391,140 @@ function lockPanel() {
   $("#dnsResult").classList.add("hidden");
   $("#wgOut").textContent = "";
   $("#dnsOut").textContent = "";
-  $("#lockErr").textContent = "";
+  setLockMessage(message || "", Boolean(isWarn));
   setTimeout(function () { var p = $("#pass"); if (p) p.focus(); }, 60);
 }
 
-(function initLock() {
-  try {
-    if (sessionStorage.getItem(AUTH_KEY) === "1") unlockPanel();
-  } catch (e) { /* حالت‌های محدود مرورگر */ }
+function verifyActiveSession(strict) {
+  if (document.body.classList.contains("locked")) {
+    return Promise.resolve(false);
+  }
+  if (!strict) {
+    var now = Date.now();
+    if (now - lastPassiveCheckAt < 2000) return Promise.resolve(true);
+    lastPassiveCheckAt = now;
+  }
 
-  $("#lockForm").addEventListener("submit", function (ev) {
-    ev.preventDefault();
-    var val = ($("#pass").value || "").trim();
-    if (val === PANEL_PASS) {
-      try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
-      $("#lockErr").textContent = "";
-      unlockPanel();
-      toast("خوش آمدی 👋", "ok");
-    } else {
-      $("#lockErr").textContent = "رمز عبور اشتباه است";
-      $("#lock").classList.add("shake");
-      setTimeout(function () { $("#lock").classList.remove("shake"); }, 420);
-      var p = $("#pass");
-      p.value = "";
-      p.focus();
+  return apiFetch("/api/auth/session")
+    .then(function (res) {
+      if (res.ok && res.data && res.data.authenticated) {
+        return true;
+      }
+      if (res.status === 401) {
+        saveToken("");
+        var changed = res.data && res.data.reason === "password_changed";
+        var msg = changed
+          ? "رمز ورود پنل توسط ادمین تغییر کرد. لطفاً با رمز جدید وارد شوید."
+          : "نشست شما منقضی شده است. لطفاً دوباره وارد شوید.";
+        lockPanel(msg, changed);
+        if (changed) toast("رمز پنل تغییر کرد — لطفاً مجدد وارد شوید", "err");
+        return false;
+      }
+      if (strict) {
+        toast((res.data && res.data.error) || "خطا در بررسی نشست؛ لطفاً دوباره تلاش کنید", "err");
+        return false;
+      }
+      return true;
+    })
+    .catch(function () {
+      if (strict) {
+        toast("ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی کنید", "err");
+        return false;
+      }
+      return true;
+    });
+}
+
+(function initLock() {
+  var eyeBtn = $("#togglePass");
+  var passInput = $("#pass");
+  if (eyeBtn && passInput) {
+    eyeBtn.addEventListener("click", function () {
+      passInput.type = passInput.type === "password" ? "text" : "password";
+      passInput.focus();
+    });
+  }
+
+  /* بررسی خودکار نشست در لحظه باز شدن صفحه */
+  apiFetch("/api/auth/session")
+    .then(function (res) {
+      if (res.ok && res.data && res.data.authenticated) {
+        unlockPanel();
+      } else if (res.status === 401 && res.data && res.data.reason === "password_changed") {
+        saveToken("");
+        lockPanel("رمز ورود پنل توسط ادمین تغییر کرد. لطفاً با رمز جدید وارد شوید.", true);
+      } else {
+        if (res.status === 401) saveToken("");
+        if (document.body.classList.contains("locked") && passInput) passInput.focus();
+      }
+    })
+    .catch(function () {
+      if (document.body.classList.contains("locked") && passInput) passInput.focus();
+    });
+
+  /* بررسی فوری نشست هنگام بازگشت به تب یا فوکوس پنجره */
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && !document.body.classList.contains("locked")) {
+      verifyActiveSession(false);
+    }
+  });
+  window.addEventListener("focus", function () {
+    if (!document.body.classList.contains("locked")) {
+      verifyActiveSession(false);
     }
   });
 
-  $("#btnLogout").addEventListener("click", function () {
-    try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {}
-    lockPanel();
+  $("#lockForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var val = (passInput.value || "").trim();
+    if (!val) {
+      setLockMessage("لطفاً رمز عبور را وارد کنید", false);
+      passInput.focus();
+      return;
+    }
+
+    var loginBtn = $("#btnLogin");
+    setBusy(loginBtn, true, " در حال بررسی...");
+    setLockMessage("", false);
+
+    apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ password: val })
+    })
+      .then(function (res) {
+        setBusy(loginBtn, false);
+        if (res.ok && res.data && res.data.ok) {
+          saveToken(res.data.token || "");
+          unlockPanel();
+          toast("خوش آمدی 👋", "ok");
+          return;
+        }
+
+        var errMsg =
+          (res.data && res.data.error) ||
+          (res.status === 404
+            ? "سرویس احراز هویت (API) در دسترس نیست. مطمئن شوید پنل روی Cloudflare Pages یا سرور اجرا شده است."
+            : "رمز عبور اشتباه است");
+
+        setLockMessage(errMsg, false);
+        $("#lock").classList.add("shake");
+        setTimeout(function () { $("#lock").classList.remove("shake"); }, 420);
+        passInput.value = "";
+        passInput.focus();
+      })
+      .catch(function () {
+        setBusy(loginBtn, false);
+        setLockMessage("ارتباط با سرور برقرار نشد. لطفاً اتصال اینترنت را بررسی کنید.", false);
+      });
   });
 
-  if (document.body.classList.contains("locked")) {
-    var p = $("#pass");
-    if (p) p.focus();
-  }
+  $("#btnLogout").addEventListener("click", function () {
+    saveToken("");
+    apiFetch("/api/auth/logout", { method: "POST" }).catch(function () {});
+    lockPanel("", false);
+    toast("از پنل خارج شدید");
+  });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5a0c10a99bc94ac',t:'MTc5NDYwNDEzMA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5a0c10a99bc94ac',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
