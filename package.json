@@ -1,0 +1,12 @@
+{
+  "name": "ahoora-xenox",
+  "version": "2.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Ahoora WireGuard & DNS panel with global admin password management on Cloudflare Pages + KV",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node scripts/test-auth.mjs",
+    "cf:dev": "npx wrangler pages dev . --kv AHOORA_KV"
+  }
+}

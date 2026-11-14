@@ -1,0 +1,13 @@
+# اختیاری: فقط اگر قصد دیپلوی با Wrangler CLI دارید این فایل را با نام wrangler.toml کپی کنید
+# و مقدار id را با Namespace ID واقعی خود در Cloudflare جایگزین نمایید.
+#
+# نکته مهم: اگر از طریق داشبورد Cloudflare Pages (اتصال مستقیم GitHub) دیپلوی می‌کنید،
+# نیازی به ساخت wrangler.toml ندارید و KV را مستقیم از تنظیمات داشبورد متصل کنید.
+
+name = "ahoora-xenox"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "."
+
+[[kv_namespaces]]
+binding = "AHOORA_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

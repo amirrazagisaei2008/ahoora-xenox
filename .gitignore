@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+.local-kv.json
+.local-kv.json.tmp
+.dev.vars
+.DS_Store
