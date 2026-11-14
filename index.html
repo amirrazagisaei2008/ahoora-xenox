@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0f0c29" />
+<title>اهورا | سازنده کانفیگ WireGuard و لیست DNS</title>
+<style>
+  :root {
+    --bg-1: #0f0c29;
+    --bg-2: #302b63;
+    --bg-3: #24243e;
+    --card: rgba(28, 28, 38, 0.72);
+    --text: #e9ecf1;
+    --text-dim: #9aa3b2;
+    --accent: #4dabf7;
+    --accent-2: #339af0;
+    --mint: #20c997;
+    --mint-2: #12b886;
+    --danger: #ff6b6b;
+    --warn: #ffd43b;
+    --input: #22222e;
+    --border: rgba(255, 255, 255, 0.09);
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    --radius: 16px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+
+  body {
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(77, 171, 247, 0.16), transparent 60%),
+      radial-gradient(900px 620px at 5% 105%, rgba(32, 201, 151, 0.14), transparent 60%),
+      linear-gradient(135deg, var(--bg-1), var(--bg-2) 55%, var(--bg-3));
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: "Vazirmatn", "Inter", "Segoe UI", Tahoma, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.75;
+    padding: 22px 16px 40px;
+    direction: rtl;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { max-width: 880px; margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  .head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding: 4px 2px; }
+  .logo {
+    width: 46px; height: 46px; flex: 0 0 46px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, var(--accent), #6741d9);
+    display: grid; place-items: center;
+    box-shadow: 0 8px 22px rgba(77, 171, 247, 0.35);
+  }
+  .logo svg { width: 26px; height: 26px; }
+  .head h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.2px; }
+  .head p { font-size: 13px; color: var(--text-dim); }
+  .head-tools {
+    margin-inline-start: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .head .badge {
+    font-size: 11px; color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* ---------- tabs ---------- */
+  .tabs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border);
+    padding: 6px; border-radius: 14px; margin-bottom: 16px;
+  }
+  .tab {
+    border: 0; cursor: pointer; background: transparent;
+    color: var(--text-dim);
+    font: inherit; font-size: 14px; font-weight: 600;
+    padding: 10px 12px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.18s, color 0.18s;
+  }
+  .tab svg { width: 18px; height: 18px; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: #07131f; background: linear-gradient(145deg, var(--accent), var(--accent-2)); box-shadow: 0 6px 18px rgba(77, 171, 247, 0.3); }
+  .tab.mint.active { background: linear-gradient(145deg, var(--mint), var(--mint-2)); box-shadow: 0 6px 18px rgba(32, 201, 151, 0.28); color: #05231a; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .card + .card { margin-top: 16px; }
+  .card h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .card.mint h2 .dot { background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid .full { grid-column: 1 / -1; }
+
+  label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  .hint { font-size: 11.5px; color: #7b8496; margin-top: 6px; }
+  .hint b { color: #c8d3e4; font-weight: 700; font-family: var(--mono); direction: ltr; display: inline-block; }
+  .lbl-note { opacity: 0.62; font-weight: 400; }
+  .fixed-box {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 11px 13px;
+    font-size: 13px;
+    color: var(--text);
+    min-height: 44px;
+  }
+  .fixed-box .tag {
+    font-family: var(--mono); font-size: 11.5px;
+    padding: 2px 9px; border-radius: 999px;
+    background: rgba(32, 201, 151, 0.14);
+    border: 1px solid rgba(32, 201, 151, 0.32);
+    color: #8ff0cc; direction: ltr;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 11px 13px;
+    font: inherit; font-size: 14px;
+    outline: none;
+    transition: border-color 0.16s, box-shadow 0.16s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: rgba(77, 171, 247, 0.7);
+    box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.16);
+  }
+
+  .search-row { display: flex; gap: 8px; }
+  .search-row input { flex: 1; }
+
+  /* ---------- country list ---------- */
+  .cty-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 8px;
+  }
+  .cty-head .live {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-dim);
+  }
+  .cty-head .live i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--mint); box-shadow: 0 0 9px var(--mint);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .cty-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    max-height: 268px;
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.22);
+    scrollbar-width: thin;
+  }
+  .cty-list::-webkit-scrollbar { width: 8px; }
+  .cty-list::-webkit-scrollbar-thumb { background: #33334a; border-radius: 8px; }
+
+  .cty {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text);
+    font: inherit; font-size: 12.5px;
+    cursor: pointer;
+    text-align: right;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  }
+  .cty:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+  .cty.active {
+    background: linear-gradient(90deg, rgba(77, 171, 247, 0.26), rgba(103, 65, 217, 0.2));
+    border-color: rgba(77, 171, 247, 0.65);
+  }
+  .cty .fl { font-size: 15px; line-height: 1; }
+  .cty .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cty .pg {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    direction: ltr;
+    min-width: 56px;
+    text-align: center;
+    transition: background 0.4s, color 0.4s;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-dim);
+  }
+  .pg.good { background: rgba(32, 201, 151, 0.16); color: #69f0c0; }
+  .pg.mid  { background: rgba(255, 212, 59, 0.15); color: #ffe066; }
+  .pg.bad  { background: rgba(255, 107, 107, 0.16); color: #ff9b9b; }
+  .cty-empty { grid-column: 1 / -1; text-align: center; color: var(--text-dim); font-size: 12.5px; padding: 18px 0; }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    border: 1px solid var(--border); cursor: pointer;
+    font: inherit; font-size: 14px; font-weight: 700;
+    padding: 12px 16px; border-radius: 11px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform 0.12s, filter 0.16s, background 0.16s, opacity 0.16s;
+    color: var(--text);
+    background: #262633;
+  }
+  .btn svg { width: 17px; height: 17px; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+  .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+  .btn.primary { background: linear-gradient(145deg, var(--accent), var(--accent-2)); color: #06131f; border-color: transparent; box-shadow: 0 8px 22px rgba(77, 171, 247, 0.28); }
+  .btn.mint { background: linear-gradient(145deg, var(--mint), var(--mint-2)); color: #05231a; border-color: transparent; box-shadow: 0 8px 22px rgba(32, 201, 151, 0.26); }
+  .btn.ghost { background: rgba(255, 255, 255, 0.05); }
+  .btn.small { padding: 8px 11px; font-size: 12.5px; border-radius: 9px; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .actions .btn.primary, .actions .btn.mint { flex: 1 1 200px; }
+  .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px; margin-top: 14px; }
+
+  /* ---------- progress ---------- */
+  .progress {
+    height: 4px; width: 0%;
+    border-radius: 999px; margin-top: 14px;
+    background: linear-gradient(90deg, var(--accent), var(--mint));
+    transition: width 0.55s ease;
+    box-shadow: 0 0 12px rgba(77, 171, 247, 0.55);
+  }
+
+  /* ---------- output ---------- */
+  .output-wrap { margin-top: 16px; display: none; }
+  .output-wrap.show { display: block; animation: fade 0.28s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+  .chip {
+    font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    direction: ltr;
+  }
+  .chip.ok { color: #b2f2bb; border-color: rgba(32, 201, 151, 0.35); background: rgba(32, 201, 151, 0.12); }
+
+  pre {
+    direction: ltr; text-align: left;
+    background: #0c0d14;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.75;
+    color: #c8d3e4;
+    max-height: 320px; overflow: auto;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  pre::-webkit-scrollbar { width: 8px; height: 8px; }
+  pre::-webkit-scrollbar-thumb { background: #33334a; border-radius: 8px; }
+
+  /* ---------- lock screen ---------- */
+  body.locked .app { display: none; }
+  .lock {
+    position: fixed; inset: 0; z-index: 100;
+    display: none; place-items: center; padding: 20px;
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(77, 171, 247, 0.18), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(32, 201, 151, 0.14), transparent 60%),
+      linear-gradient(135deg, var(--bg-1), var(--bg-2) 55%, var(--bg-3));
+  }
+  body.locked .lock { display: grid; }
+  .lock-card {
+    width: 100%; max-width: 360px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 26px 22px 22px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .lock-card .logo { margin: 0 auto 14px; }
+  .lock-card h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .lock-card p { font-size: 12.5px; color: var(--text-dim); margin-bottom: 16px; }
+  .lock-card input {
+    text-align: center; direction: ltr;
+    letter-spacing: 2px; margin-bottom: 10px;
+    font-family: var(--mono);
+  }
+  .lock-card .btn { width: 100%; }
+  .lock-err { font-size: 12px; color: var(--danger); min-height: 20px; margin-top: 8px; }
+  .shake { animation: shake 0.38s ease; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    60% { transform: translateX(8px); }
+    80% { transform: translateX(-4px); }
+  }
+
+  /* ---------- footer / toast ---------- */
+  .foot { margin-top: 22px; text-align: center; font-size: 12.5px; color: var(--text-dim); }
+  .foot a { color: var(--accent); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+  .foot .sep { opacity: 0.4; margin: 0 8px; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%;
+    transform: translate(-50%, 20px);
+    background: #14161f;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 18px; border-radius: 12px;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.22s, transform 0.22s;
+    z-index: 50; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.ok { border-color: rgba(32, 201, 151, 0.5); }
+  .toast.err { border-color: rgba(255, 107, 107, 0.55); }
+
+  .spinner {
+    width: 15px; height: 15px;
+    border: 2px solid rgba(0, 0, 0, 0.28);
+    border-top-color: #06131f;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 620px) {
+    body { padding: 16px 11px 32px; }
+    .grid { grid-template-columns: 1fr; }
+    .card { padding: 16px; }
+    .head h1 { font-size: 17px; }
+    .head .badge { display: none; }
+    .tab { font-size: 12.5px; padding: 9px 6px; }
+    .cty-list { grid-template-columns: 1fr; max-height: 300px; }
+  }
+</style>
+</head>
+<body class="locked">
+
+<!-- ====================== صفحه ورود ====================== -->
+<div class="lock" id="lock">
+  <form class="lock-card" id="lockForm" autocomplete="off">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#08131f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="10" width="16" height="10" rx="2.5"/>
+        <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+      </svg>
+    </div>
+    <h1>ورود به پنل</h1>
+    <p>برای ادامه رمز عبور را وارد کنید</p>
+    <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+    <button class="btn primary" type="submit">ورود</button>
+    <div class="lock-err" id="lockErr"></div>
+  </form>
+</div>
+
+<div class="app">
+
+  <header class="head">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#08131f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+    </div>
+    <div>
+      <h1>پنل اهورا</h1>
+      <p>سازنده کانفیگ WireGuard + لیست DNS / IP</p>
+    </div>
+    <div class="head-tools">
+      <span class="badge">نسخه ۲.۲</span>
+      <button class="btn ghost small" id="btnLogout" type="button" title="خروج از پنل">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>
+          <path d="M10 8 6 12l4 4M6 12h9"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" id="tabWg" role="tab" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/>
+      </svg>
+      کانفیگ WireGuard
+    </button>
+    <button class="tab mint" id="tabDns" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h16M4 12h16M4 18h10"/>
+      </svg>
+      لیست DNS / IP
+    </button>
+  </nav>
+
+  <!-- ====================== تب وایرگارد ====================== -->
+  <section id="panelWg">
+    <div class="card">
+      <h2><span class="dot"></span> تنظیمات کانفیگ</h2>
+
+      <div class="grid">
+        <div>
+          <label for="wgName">نام فایل <span class="lbl-note">(حداکثر ۱۵ کاراکتر)</span></label>
+          <input id="wgName" placeholder="مثلاً: my_vpn" maxlength="15" autocomplete="off" />
+          <div class="hint">نام نهایی: <b id="wgNamePreview">at-ahoora.conf</b></div>
+        </div>
+
+        <div>
+          <label for="wgMtu">MTU</label>
+          <select id="wgMtu">
+            <option value="1280">1280</option>
+            <option value="1380">1380</option>
+            <option value="1420" selected>1420 (پیش‌فرض)</option>
+            <option value="1500">1500</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label for="wgDns">DNS</label>
+          <select id="wgDns">
+            <option value="10.202.10.10, 78.157.42.101" selected>شکن + بگذر (10.202.10.10, 78.157.42.101)</option>
+            <option value="1.1.1.1, 1.0.0.1">عمومی سریع (1.1.1.1, 1.0.0.1)</option>
+            <option value="8.8.8.8, 8.8.4.4">گوگل (8.8.8.8, 8.8.4.4)</option>
+            <option value="9.9.9.9, 149.112.112.112">کوالتیس (9.9.9.9)</option>
+            <option value="178.22.122.100, 185.51.200.2">پارس‌پک / الکترو</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="wgVolume">حجم</label>
+          <select id="wgVolume">
+            <option>300 مگابایت</option>
+            <option>1 گیگابایت</option>
+            <option>5 گیگابایت</option>
+            <option>10 گیگابایت</option>
+            <option>15 گیگابایت</option>
+            <option>20 گیگابایت</option>
+            <option>30 گیگابایت</option>
+            <option>45 گیگابایت</option>
+            <option>50 گیگابایت</option>
+            <option selected>نامحدود</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="wgTime">زمان</label>
+          <select id="wgTime">
+            <option>7 روز</option>
+            <option>14 روز</option>
+            <option>21 روز</option>
+            <option selected>30 روز</option>
+            <option>45 روز</option>
+            <option>60 روز</option>
+            <option>75 روز</option>
+            <option>90 روز</option>
+            <option>1 سال</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <div class="cty-head">
+            <label style="margin:0">انتخاب کشور (<span id="wgRegionCount">193</span>)</label>
+            <span class="live"><i></i> پینگ زنده</span>
+          </div>
+          <div class="search-row" style="margin-bottom:8px">
+            <input type="text" id="wgSearch" placeholder="جستجوی نام یا کد کشور..." autocomplete="off" />
+            <button class="btn ghost small" id="wgClearSearch" type="button">پاک کردن</button>
+          </div>
+          <div class="cty-list" id="wgRegion" role="listbox" aria-label="انتخاب کشور"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnGenWg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>
+          ساخت کانفیگ
+        </button>
+        <button class="btn ghost" id="btnResetWg" type="button">پاک کردن</button>
+      </div>
+      <div class="progress" id="wgProgress"></div>
+    </div>
+
+    <div class="card hidden" id="wgResult">
+      <h2><span class="dot"></span> نتیجه</h2>
+      <div class="meta" id="wgMeta"></div>
+      <pre id="wgOut"></pre>
+
+      <div class="btn-row">
+        <button class="btn primary" id="dlConf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 19h16"/></svg>
+          دانلود .conf
+        </button>
+        <button class="btn mint" id="dlTxt">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M9 13h6M9 17h4"/></svg>
+          دانلود .txt
+        </button>
+        <button class="btn ghost" id="dlJson">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/></svg>
+          دانلود .json
+        </button>
+        <button class="btn ghost" id="copyConf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          کپی کانفیگ
+        </button>
+        <button class="btn ghost" id="copySub">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+          کپی متن ساب (Base64)
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== تب DNS ====================== -->
+  <section id="panelDns" class="hidden">
+    <div class="card mint">
+      <h2><span class="dot"></span> تنظیمات لیست</h2>
+
+      <div class="grid">
+        <div>
+          <label for="dnsName">نام فایل <span class="lbl-note">(حداکثر ۱۵ کاراکتر)</span></label>
+          <input id="dnsName" placeholder="مثلاً: dns_list" maxlength="15" autocomplete="off" />
+          <div class="hint">نام نهایی: <b id="dnsNamePreview">at-dns_list.txt</b></div>
+        </div>
+
+        <div>
+          <label>خروجی فایل</label>
+          <div class="fixed-box">
+            <span class="tag">2000</span>
+            <span class="tag">IPv4</span>
+          </div>
+        </div>
+
+        <div>
+          <label for="dnsVolume">حجم</label>
+          <select id="dnsVolume">
+            <option>300 مگابایت</option>
+            <option>1 گیگابایت</option>
+            <option>5 گیگابایت</option>
+            <option>10 گیگابایت</option>
+            <option>15 گیگابایت</option>
+            <option>20 گیگابایت</option>
+            <option>30 گیگابایت</option>
+            <option>45 گیگابایت</option>
+            <option>50 گیگابایت</option>
+            <option selected>نامحدود</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="dnsTime">زمان</label>
+          <select id="dnsTime">
+            <option>7 روز</option>
+            <option>14 روز</option>
+            <option>21 روز</option>
+            <option selected>30 روز</option>
+            <option>45 روز</option>
+            <option>60 روز</option>
+            <option>75 روز</option>
+            <option>90 روز</option>
+            <option>1 سال</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <div class="cty-head">
+            <label style="margin:0">انتخاب کشور (<span id="dnsRegionCount">193</span>)</label>
+            <span class="live"><i></i> پینگ زنده</span>
+          </div>
+          <div class="search-row" style="margin-bottom:8px">
+            <input type="text" id="dnsSearch" placeholder="جستجوی نام یا کد کشور..." autocomplete="off" />
+            <button class="btn ghost small" id="dnsClearSearch" type="button">پاک کردن</button>
+          </div>
+          <div class="cty-list" id="dnsRegion" role="listbox" aria-label="انتخاب کشور"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn mint" id="btnGenDns">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 19h16"/></svg>
+          ساخت و دانلود فایل TXT
+        </button>
+        <button class="btn ghost" id="btnCopyDns" type="button">کپی لیست</button>
+      </div>
+      <div class="progress" id="dnsProgress"></div>
+    </div>
+
+    <div class="card mint hidden" id="dnsResult">
+      <h2><span class="dot"></span> پیش‌نمایش لیست</h2>
+      <div class="meta" id="dnsMeta"></div>
+      <pre id="dnsOut"></pre>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>
+      <a href="https://t.me/AT_server" target="_blank" rel="noopener">کانال پشتیبانی: AT_server</a>
+    </p>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   ۱) رمزنگاری: X25519 و Base64  (بدون هیچ کتابخانه‌ی بیرونی)
+   ========================================================= */
+/* == crypto-start == */
+var P = (1n << 255n) - 19n;
+var A24 = 121665n;
+
+function leToBig(u8) {
+  var x = 0n;
+  for (var i = 31; i >= 0; i--) x = (x << 8n) | BigInt(u8[i]);
+  return x;
+}
+function bigToLe(x) {
+  var out = new Uint8Array(32);
+  for (var i = 0; i < 32; i++) { out[i] = Number(x & 255n); x >>= 8n; }
+  return out;
+}
+function modp(a) { a %= P; return a < 0n ? a + P : a; }
+function powmod(b, e) {
+  var r = 1n; b = modp(b);
+  while (e > 0n) { if (e & 1n) r = (r * b) % P; b = (b * b) % P; e >>= 1n; }
+  return r;
+}
+/* RFC 7748 — Montgomery ladder */
+function x25519(priv, u8u) {
+  var k = Uint8Array.from(priv);
+  k[0] &= 248; k[31] &= 127; k[31] |= 64;
+  var kBig = leToBig(k), x1 = modp(leToBig(u8u));
+  var x2 = 1n, z2 = 0n, x3 = x1, z3 = 1n, swap = 0n;
+  for (var t = 254; t >= 0; t--) {
+    var kt = (kBig >> BigInt(t)) & 1n;
+    swap ^= kt;
+    if (swap) { var a1 = x2; x2 = x3; x3 = a1; var b1 = z2; z2 = z3; z3 = b1; }
+    swap = kt;
+    var A = modp(x2 + z2), AA = modp(A * A), B = modp(x2 - z2), BB = modp(B * B), E = modp(AA - BB);
+    var C = modp(x3 + z3), D = modp(x3 - z3), DA = modp(D * A), CB = modp(C * B);
+    var t1 = modp(DA + CB), t2 = modp(DA - CB);
+    x3 = modp(t1 * t1);
+    z3 = modp(x1 * modp(t2 * t2));
+    x2 = modp(AA * BB);
+    z2 = modp(E * modp(AA + A24 * E));
+  }
+  if (swap) { var a2 = x2; x2 = x3; x3 = a2; var b2 = z2; z2 = z3; z3 = b2; }
+  return bigToLe(modp(x2 * powmod(z2, P - 2n)));
+}
+function b64enc(u8) {
+  var s = "";
+  for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  return btoa(s);
+}
+function b64dec(str) {
+  var bin = atob(str), u = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+/* تولید جفت‌کلید معتبر Curve25519 برای WireGuard */
+function genKeypair() {
+  var priv = new Uint8Array(32);
+  crypto.getRandomValues(priv);
+  priv[0] &= 248; priv[31] &= 127; priv[31] |= 64;
+  var base = new Uint8Array(32); base[0] = 9;
+  var pub = x25519(priv, base);
+  return { priv: b64enc(priv), pub: b64enc(pub) };
+}
+/* == crypto-end == */
+
+/* =========================================================
+   ۲) داده‌ها
+   ========================================================= */
+var allCountries = [
+  {code:"af",name:"افغانستان",flag:"🇦🇫"},{code:"al",name:"آلبانی",flag:"🇦🇱"},{code:"dz",name:"الجزایر",flag:"🇩🇿"},
+  {code:"ad",name:"آندورا",flag:"🇦🇩"},{code:"ao",name:"آنگولا",flag:"🇦🇴"},{code:"ag",name:"آنتیگوا و باربودا",flag:"🇦🇬"},
+  {code:"ar",name:"آرژانتین",flag:"🇦🇷"},{code:"am",name:"ارمنستان",flag:"🇦🇲"},{code:"au",name:"استرالیا",flag:"🇦🇺"},
+  {code:"at",name:"اتریش",flag:"🇦🇹"},{code:"az",name:"آذربایجان",flag:"🇦🇿"},{code:"bs",name:"باهاما",flag:"🇧🇸"},
+  {code:"bh",name:"بحرین",flag:"🇧🇭"},{code:"bd",name:"بنگلادش",flag:"🇧🇩"},{code:"bb",name:"باربادوس",flag:"🇧🇧"},
+  {code:"by",name:"بلاروس",flag:"🇧🇾"},{code:"be",name:"بلژیک",flag:"🇧🇪"},{code:"bz",name:"بلیز",flag:"🇧🇿"},
+  {code:"bj",name:"بنین",flag:"🇧🇯"},{code:"bt",name:"بوتان",flag:"🇧🇹"},{code:"bo",name:"بولیوی",flag:"🇧🇴"},
+  {code:"ba",name:"بوسنی و هرزگوین",flag:"🇧🇦"},{code:"bw",name:"بوتسوانا",flag:"🇧🇼"},{code:"br",name:"برزیل",flag:"🇧🇷"},
+  {code:"bn",name:"برونئی",flag:"🇧🇳"},{code:"bg",name:"بلغارستان",flag:"🇧🇬"},{code:"bf",name:"بورکینافاسو",flag:"🇧🇫"},
+  {code:"bi",name:"بوروندی",flag:"🇧🇮"},{code:"cv",name:"کیپ‌ورد",flag:"🇨🇻"},{code:"kh",name:"کامبوج",flag:"🇰🇭"},
+  {code:"cm",name:"کامرون",flag:"🇨🇲"},{code:"ca",name:"کانادا",flag:"🇨🇦"},{code:"cf",name:"جمهوری آفریقای مرکزی",flag:"🇨🇫"},
+  {code:"td",name:"چاد",flag:"🇹🇩"},{code:"cl",name:"شیلی",flag:"🇨🇱"},{code:"cn",name:"چین",flag:"🇨🇳"},
+  {code:"co",name:"کلمبیا",flag:"🇨🇴"},{code:"km",name:"کومور",flag:"🇰🇲"},{code:"cg",name:"کنگو",flag:"🇨🇬"},
+  {code:"cd",name:"جمهوری دموکراتیک کنگو",flag:"🇨🇩"},{code:"cr",name:"کاستاریکا",flag:"🇨🇷"},{code:"ci",name:"ساحل عاج",flag:"🇨🇮"},
+  {code:"hr",name:"کرواسی",flag:"🇭🇷"},{code:"cu",name:"کوبا",flag:"🇨🇺"},{code:"cy",name:"قبرس",flag:"🇨🇾"},
+  {code:"cz",name:"چک",flag:"🇨🇿"},{code:"dk",name:"دانمارک",flag:"🇩🇰"},{code:"dj",name:"جیبوتی",flag:"🇩🇯"},
+  {code:"dm",name:"دومینیکا",flag:"🇩🇲"},{code:"do",name:"جمهوری دومینیکن",flag:"🇩🇴"},{code:"ec",name:"اکوادور",flag:"🇪🇨"},
+  {code:"eg",name:"مصر",flag:"🇪🇬"},{code:"sv",name:"السالوادور",flag:"🇸🇻"},{code:"gq",name:"گینه استوایی",flag:"🇬🇶"},
+  {code:"er",name:"اریتره",flag:"🇪🇷"},{code:"ee",name:"استونی",flag:"🇪🇪"},{code:"sz",name:"اسواتینی",flag:"🇸🇿"},
+  {code:"et",name:"اتیوپی",flag:"🇪🇹"},{code:"fj",name:"فیجی",flag:"🇫🇯"},{code:"fi",name:"فنلاند",flag:"🇫🇮"},
+  {code:"fr",name:"فرانسه",flag:"🇫🇷"},{code:"ga",name:"گابن",flag:"🇬🇦"},{code:"gm",name:"گامبیا",flag:"🇬🇲"},
+  {code:"ge",name:"گرجستان",flag:"🇬🇪"},{code:"de",name:"آلمان",flag:"🇩🇪"},{code:"gh",name:"غنا",flag:"🇬🇭"},
+  {code:"gr",name:"یونان",flag:"🇬🇷"},{code:"gd",name:"گرنادا",flag:"🇬🇩"},{code:"gt",name:"گواتمالا",flag:"🇬🇹"},
+  {code:"gn",name:"گینه",flag:"🇬🇳"},{code:"gw",name:"گینه بیسائو",flag:"🇬🇼"},{code:"gy",name:"گویان",flag:"🇬🇾"},
+  {code:"ht",name:"هائیتی",flag:"🇭🇹"},{code:"va",name:"واتیکان",flag:"🇻🇦"},{code:"hn",name:"هندوراس",flag:"🇭🇳"},
+  {code:"hu",name:"مجارستان",flag:"🇭🇺"},{code:"is",name:"ایسلند",flag:"🇮🇸"},{code:"in",name:"هند",flag:"🇮🇳"},
+  {code:"id",name:"اندونزی",flag:"🇮🇩"},{code:"ir",name:"ایران",flag:"🇮🇷"},{code:"iq",name:"عراق",flag:"🇮🇶"},
+  {code:"ie",name:"ایرلند",flag:"🇮🇪"},{code:"il",name:"اسرائیل",flag:"🇮🇱"},{code:"it",name:"ایتالیا",flag:"🇮🇹"},
+  {code:"jm",name:"جامائیکا",flag:"🇯🇲"},{code:"jp",name:"ژاپن",flag:"🇯🇵"},{code:"jo",name:"اردن",flag:"🇯🇴"},
+  {code:"kz",name:"قزاقستان",flag:"🇰🇿"},{code:"ke",name:"کنیا",flag:"🇰🇪"},{code:"ki",name:"کیریباتی",flag:"🇰🇮"},
+  {code:"kp",name:"کره شمالی",flag:"🇰🇵"},{code:"kr",name:"کره جنوبی",flag:"🇰🇷"},{code:"kw",name:"کویت",flag:"🇰🇼"},
+  {code:"kg",name:"قرقیزستان",flag:"🇰🇬"},{code:"la",name:"لائوس",flag:"🇱🇦"},{code:"lv",name:"لتونی",flag:"🇱🇻"},
+  {code:"lb",name:"لبنان",flag:"🇱🇧"},{code:"ls",name:"لسوتو",flag:"🇱🇸"},{code:"lr",name:"لیبریا",flag:"🇱🇷"},
+  {code:"ly",name:"لیبی",flag:"🇱🇾"},{code:"li",name:"لیختن‌اشتاین",flag:"🇱🇮"},{code:"lt",name:"لیتوانی",flag:"🇱🇹"},
+  {code:"lu",name:"لوکزامبورگ",flag:"🇱🇺"},{code:"mg",name:"ماداگاسکار",flag:"🇲🇬"},{code:"mw",name:"مالاوی",flag:"🇲🇼"},
+  {code:"my",name:"مالزی",flag:"🇲🇾"},{code:"mv",name:"مالدیو",flag:"🇲🇻"},{code:"ml",name:"مالی",flag:"🇲🇱"},
+  {code:"mt",name:"مالت",flag:"🇲🇹"},{code:"mh",name:"جزایر مارشال",flag:"🇲🇭"},{code:"mr",name:"موریتانی",flag:"🇲🇷"},
+  {code:"mu",name:"موریس",flag:"🇲🇺"},{code:"mx",name:"مکزیک",flag:"🇲🇽"},{code:"fm",name:"میکرونزی",flag:"🇫🇲"},
+  {code:"md",name:"مولداوی",flag:"🇲🇩"},{code:"mc",name:"موناکو",flag:"🇲🇨"},{code:"mn",name:"مغولستان",flag:"🇲🇳"},
+  {code:"me",name:"مونته‌نگرو",flag:"🇲🇪"},{code:"ma",name:"مراکش",flag:"🇲🇦"},{code:"mz",name:"موزامبیک",flag:"🇲🇿"},
+  {code:"mm",name:"میانمار",flag:"🇲🇲"},{code:"na",name:"نامیبیا",flag:"🇳🇦"},{code:"nr",name:"نائورو",flag:"🇳🇷"},
+  {code:"np",name:"نپال",flag:"🇳🇵"},{code:"nl",name:"هلند",flag:"🇳🇱"},{code:"nz",name:"نیوزیلند",flag:"🇳🇿"},
+  {code:"ni",name:"نیکاراگوئه",flag:"🇳🇮"},{code:"ne",name:"نیجر",flag:"🇳🇪"},{code:"ng",name:"نیجریه",flag:"🇳🇬"},
+  {code:"no",name:"نروژ",flag:"🇳🇴"},{code:"om",name:"عمان",flag:"🇴🇲"},{code:"pk",name:"پاکستان",flag:"🇵🇰"},
+  {code:"pw",name:"پالائو",flag:"🇵🇼"},{code:"pa",name:"پاناما",flag:"🇵🇦"},{code:"pg",name:"پاپوآ گینه نو",flag:"🇵🇬"},
+  {code:"py",name:"پاراگوئه",flag:"🇵🇾"},{code:"pe",name:"پرو",flag:"🇵🇪"},{code:"ph",name:"فیلیپین",flag:"🇵🇭"},
+  {code:"pl",name:"لهستان",flag:"🇵🇱"},{code:"pt",name:"پرتغال",flag:"🇵🇹"},{code:"qa",name:"قطر",flag:"🇶🇦"},
+  {code:"ro",name:"رومانی",flag:"🇷🇴"},{code:"ru",name:"روسیه",flag:"🇷🇺"},{code:"rw",name:"رواندا",flag:"🇷🇼"},
+  {code:"kn",name:"سنت کیتس و نویس",flag:"🇰🇳"},{code:"lc",name:"سنت لوسیا",flag:"🇱🇨"},{code:"vc",name:"سنت وینسنت و گرنادین‌ها",flag:"🇻🇨"},
+  {code:"ws",name:"ساموآ",flag:"🇼🇸"},{code:"sm",name:"سان مارینو",flag:"🇸🇲"},{code:"st",name:"سائوتومه و پرنسیپ",flag:"🇸🇹"},
+  {code:"sa",name:"عربستان سعودی",flag:"🇸🇦"},{code:"sn",name:"سنگال",flag:"🇸🇳"},{code:"rs",name:"صربستان",flag:"🇷🇸"},
+  {code:"sc",name:"سیشل",flag:"🇸🇨"},{code:"sl",name:"سیرالئون",flag:"🇸🇱"},{code:"sg",name:"سنگاپور",flag:"🇸🇬"},
+  {code:"sk",name:"اسلواکی",flag:"🇸🇰"},{code:"si",name:"اسلوونی",flag:"🇸🇮"},{code:"sb",name:"جزایر سلیمان",flag:"🇸🇧"},
+  {code:"so",name:"سومالی",flag:"🇸🇴"},{code:"za",name:"آفریقای جنوبی",flag:"🇿🇦"},{code:"ss",name:"سودان جنوبی",flag:"🇸🇸"},
+  {code:"es",name:"اسپانیا",flag:"🇪🇸"},{code:"lk",name:"سری‌لانکا",flag:"🇱🇰"},{code:"sd",name:"سودان",flag:"🇸🇩"},
+  {code:"sr",name:"سورینام",flag:"🇸🇷"},{code:"se",name:"سوئد",flag:"🇸🇪"},{code:"ch",name:"سوئیس",flag:"🇨🇭"},
+  {code:"sy",name:"سوریه",flag:"🇸🇾"},{code:"tj",name:"تاجیکستان",flag:"🇹🇯"},{code:"tz",name:"تانزانیا",flag:"🇹🇿"},
+  {code:"th",name:"تایلند",flag:"🇹🇭"},{code:"tl",name:"تیمور-لسته",flag:"🇹🇱"},{code:"tg",name:"توگو",flag:"🇹🇬"},
+  {code:"to",name:"تونگا",flag:"🇹🇴"},{code:"tt",name:"ترینیداد و توباگو",flag:"🇹🇹"},{code:"tn",name:"تونس",flag:"🇹🇳"},
+  {code:"tr",name:"ترکیه",flag:"🇹🇷"},{code:"tm",name:"ترکمنستان",flag:"🇹🇲"},{code:"tv",name:"تووالو",flag:"🇹🇻"},
+  {code:"ug",name:"اوگاندا",flag:"🇺🇬"},{code:"ua",name:"اوکراین",flag:"🇺🇦"},{code:"ae",name:"امارات متحده عربی",flag:"🇦🇪"},
+  {code:"gb",name:"بریتانیا",flag:"🇬🇧"},{code:"us",name:"ایالات متحده",flag:"🇺🇸"},{code:"uy",name:"اروگوئه",flag:"🇺🇾"},
+  {code:"uz",name:"ازبکستان",flag:"🇺🇿"},{code:"vu",name:"وانواتو",flag:"🇻🇺"},{code:"ve",name:"ونزوئلا",flag:"🇻🇪"},
+  {code:"vn",name:"ویتنام",flag:"🇻🇳"},{code:"ye",name:"یمن",flag:"🇾🇪"},{code:"zm",name:"زامبیا",flag:"🇿🇲"},
+  {code:"zw",name:"زیمبابوه",flag:"🇿🇼"}
+];
+
+/* پیشوندهای IP هر کشور (تصادفی، برای ساخت کانفیگ) */
+var v4Prefixes = {
+  af: ["103.74"], al: ["79.106"], dz: ["41.104"], ad: ["185.60"], ao: ["197.229"],
+  ar: ["181.30"], am: ["185.16"], au: ["103.11", "1.128"], at: ["185.52"],
+  az: ["85.132"], bs: ["24.51"], bh: ["185.24"], bd: ["103.108"], bb: ["65.48"],
+  by: ["178.121"], be: ["91.121"], bz: ["190.197"], bj: ["41.79"], bt: ["202.144"],
+  bo: ["200.87"], ba: ["188.129"], bw: ["168.167"], br: ["177.54", "189.84"],
+  bn: ["202.160"], bg: ["94.156"], bf: ["196.28"], bi: ["41.79"], cv: ["197.254"],
+  kh: ["103.7"], cm: ["154.72"], ca: ["142.93", "159.203"], cf: ["196.32"],
+  td: ["197.149"], cl: ["190.98"], cn: ["101.32", "116.62"], co: ["181.49"],
+  km: ["197.234"], cg: ["196.202"], cd: ["197.215"], cr: ["190.107"], ci: ["196.201"],
+  hr: ["185.62"], cu: ["190.92"], cy: ["185.26"], cz: ["185.8"], dk: ["77.247", "185.10"],
+  dj: ["197.241"], dm: ["198.27"], do: ["190.80"], ec: ["186.3"], eg: ["41.65"],
+  sv: ["190.85"], gq: ["197.214"], er: ["197.214"], ee: ["185.23"], sz: ["197.234"],
+  et: ["196.188"], fj: ["144.120"], fi: ["65.108", "95.217"], fr: ["51.158", "51.15"],
+  ga: ["196.216"], gm: ["197.231"], ge: ["185.10"], de: ["138.201", "159.69", "116.202"],
+  gh: ["154.160"], gr: ["185.55"], gd: ["198.50"], gt: ["190.14"], gn: ["196.32"],
+  gw: ["196.216"], gy: ["190.80"], ht: ["186.15"], va: ["185.60"], hn: ["190.6"],
+  hu: ["185.43"], is: ["82.221"], in: ["103.21", "139.59"], id: ["103.28"],
+  ir: ["185.51", "94.182"], iq: ["185.66", "37.236"], ie: ["87.32"], il: ["185.60"],
+  it: ["93.63", "151.20"], jm: ["198.27"], jp: ["160.16", "133.242"], jo: ["176.28"],
+  kz: ["185.22"], ke: ["41.90"], ki: ["202.44"], kp: ["175.45"], kr: ["141.164", "13.124"],
+  kw: ["185.96"], kg: ["185.68"], la: ["202.137"], lv: ["185.44"], lb: ["185.130"],
+  ls: ["197.186"], lr: ["197.231"], ly: ["197.44"], li: ["185.60"], lt: ["185.38"],
+  lu: ["185.60"], mg: ["196.207"], mw: ["41.87"], my: ["103.10"], mv: ["202.1"],
+  ml: ["196.207"], mt: ["185.60"], mh: ["202.44"], mr: ["197.231"], mu: ["196.20"],
+  mx: ["189.203"], fm: ["202.44"], md: ["185.19"], mc: ["185.60"], mn: ["202.131"],
+  me: ["185.60"], ma: ["196.200"], mz: ["197.218"], mm: ["103.68"], na: ["197.231"],
+  nr: ["202.44"], np: ["202.51"], nl: ["185.104", "45.83", "5.79"], nz: ["103.16"],
+  ni: ["190.14"], ne: ["197.231"], ng: ["105.112"], no: ["185.91", "51.175"],
+  om: ["185.93"], pk: ["103.255", "39.40"], pw: ["202.44"], pa: ["190.140"],
+  pg: ["202.1"], py: ["190.93"], pe: ["190.81"], ph: ["103.5"], pl: ["185.243", "5.172"],
+  pt: ["185.60"], qa: ["185.94"], ro: ["86.120", "185.101"], ru: ["95.163", "185.32"],
+  rw: ["197.243"], kn: ["198.50"], lc: ["198.50"], vc: ["198.50"], ws: ["202.44"],
+  sm: ["185.60"], st: ["197.159"], sa: ["185.96"], sn: ["196.207"], rs: ["185.55"],
+  sc: ["197.234"], sl: ["197.231"], sg: ["128.199", "139.180"], sk: ["185.42"],
+  si: ["185.44"], sb: ["202.44"], so: ["196.201"], za: ["102.132"], ss: ["197.231"],
+  es: ["185.13", "51.68"], lk: ["103.28"], sd: ["196.202"], sr: ["190.98"],
+  se: ["46.246", "185.76"], ch: ["185.130", "51.15"], sy: ["185.120"], tj: ["185.25"],
+  tz: ["41.86"], th: ["103.22"], tl: ["202.144"], tg: ["196.207"], to: ["202.44"],
+  tt: ["190.80"], tn: ["197.28"], tr: ["45.32", "185.125"], tm: ["185.22"],
+  tv: ["202.44"], ug: ["41.202"], ua: ["185.65", "91.211"], ae: ["94.200", "185.93"],
+  gb: ["51.140", "185.13"], us: ["104.248", "167.71", "159.65"], uy: ["190.64"],
+  uz: ["185.22"], vu: ["202.44"], ve: ["190.202"], vn: ["103.7"], ye: ["185.120"],
+  zm: ["102.141"], zw: ["197.221"]
+};
+var v6Prefixes = [
+  "2a01:4f8", "2a01:4f9", "2a02:26f0", "2a03:4000", "2a00:23c8",
+  "2604:a880", "2607:5300", "2400:8901", "2405:4800", "2a0c:4b00",
+  "2001:41d0", "2a02:578", "240e:abcd", "2a01:798", "2a01:5ec0"
+];
+
+/* پورت‌های متداول WireGuard */
+var WG_PORTS = [51820, 443, 80, 8443, 1194, 4500, 1701, 500, 1294, 51821];
+
+/* =========================================================
+   ۳) کمکی‌ها
+   ========================================================= */
+var $ = function (sel) { return document.querySelector(sel); };
+
+function rnd(n) { return Math.floor(Math.random() * n); }
+function pick(arr) { return arr[rnd(arr.length)]; }
+function pad2(n) { return String(n).padStart(2, "0"); }
+function randOctet() { return rnd(254) + 1; }
+function hex4() { return rnd(65536).toString(16); }
+
+function randV4(prefixes) {
+  var p = pick(prefixes).split(".");
+  while (p.length < 3) p.push(String(rnd(255)));
+  return p[0] + "." + p[1] + "." + p[2] + "." + randOctet();
+}
+function randV6(prefix) {
+  var g = prefix.split(":");
+  while (g.length < 8) g.push(hex4());
+  return g.join(":");
+}
+
+var toastTimer = null;
+function toast(msg, kind) {
+  var t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (kind ? " " + kind : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.className = "toast"; }, 2600);
+}
+
+function download(filename, text, mime) {
+  var blob = new Blob([text], { type: (mime || "text/plain") + ";charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); resolve(); }
+    catch (e) { reject(e); }
+    document.body.removeChild(ta);
+  });
+}
+
+/* نام فایل: حداکثر ۱۵ کاراکتر و همیشه شامل «at» */
+var NAME_MAX = 15;
+var NAME_TAG = "at-";
+
+function safeName(raw, fallback) {
+  var n = String(raw || "").trim().replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!n) n = fallback || "ahoora";
+
+  /* اگر «at» داخل نام نیست، به ابتدایش می‌چسبد (با رعایت سقف ۱۵ کاراکتر) */
+  if (n.toLowerCase().indexOf("at") === -1) {
+    n = NAME_TAG + n;
+  }
+  return n.slice(0, NAME_MAX);
+}
+
+function setBusy(btn, busy, label) {
+  if (busy) {
+    btn.dataset.label = btn.dataset.label || btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>' + (label || " در حال ساخت...");
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
+  }
+}
+
+/* =========================================================
+   ۴) تب‌ها
+   ========================================================= */
+var state = { wg: null, dns: null, selected: { wg: "de", dns: "de" } };
+
+$("#tabWg").addEventListener("click", function () { switchTab("wg"); });
+$("#tabDns").addEventListener("click", function () { switchTab("dns"); });
+
+function switchTab(which) {
+  var isWg = which === "wg";
+  $("#panelWg").classList.toggle("hidden", !isWg);
+  $("#panelDns").classList.toggle("hidden", isWg);
+  $("#tabWg").classList.toggle("active", isWg);
+  $("#tabDns").classList.toggle("active", !isWg);
+  $("#tabWg").setAttribute("aria-selected", String(isWg));
+  $("#tabDns").setAttribute("aria-selected", String(!isWg));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* =========================================================
+   ۵) لیست کشورها + پینگ نمایشی متغیر
+   ========================================================= */
+var pings = Object.create(null);
+
+function seedPings() {
+  allCountries.forEach(function (c) {
+    /* پینگ اولیه‌ی ساختگی بین ۲۲ تا ۱۹۰ میلی‌ثانیه */
+    pings[c.code] = 22 + rnd(168);
+  });
+}
+seedPings();
+
+function pingClass(ms) {
+  if (ms < 70) return "good";
+  if (ms < 130) return "mid";
+  return "bad";
+}
+
+var PICKERS = {
+  wg:  { list: "#wgRegion",  search: "#wgSearch",  clear: "#wgClearSearch",  count: "#wgRegionCount" },
+  dns: { list: "#dnsRegion", search: "#dnsSearch", clear: "#dnsClearSearch", count: "#dnsRegionCount" }
+};
+var PICKER_KEYS = ["wg", "dns"];
+
+function renderRegions(key, list) {
+  var el = PICKERS[key];
+  var box = $(el.list);
+  box.innerHTML = "";
+  $(el.count).textContent = String(list.length);
+
+  if (!list.length) {
+    var e = document.createElement("div");
+    e.className = "cty-empty";
+    e.textContent = "کشوری با این نام پیدا نشد";
+    box.appendChild(e);
+    return;
+  }
+
+  var chosen = state.selected[key];
+  var frag = document.createDocumentFragment();
+  list.forEach(function (c) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "cty" + (chosen === c.code ? " active" : "");
+    b.dataset.code = c.code;
+    b.setAttribute("role", "option");
+    b.setAttribute("aria-selected", chosen === c.code ? "true" : "false");
+
+    var fl = document.createElement("span");
+    fl.className = "fl";
+    fl.textContent = c.flag;
+
+    var nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = c.name;
+
+    var pg = document.createElement("span");
+    pg.className = "pg " + pingClass(pings[c.code]);
+    pg.textContent = pings[c.code] + " ms";
+
+    b.appendChild(fl);
+    b.appendChild(nm);
+    b.appendChild(pg);
+    b.addEventListener("click", function () { selectRegion(key, c.code); });
+    frag.appendChild(b);
+  });
+  box.appendChild(frag);
+}
+
+function selectRegion(key, code) {
+  state.selected[key] = code;
+  var items = $(PICKERS[key].list).querySelectorAll(".cty");
+  for (var i = 0; i < items.length; i++) {
+    var on = items[i].dataset.code === code;
+    items[i].classList.toggle("active", on);
+    items[i].setAttribute("aria-selected", on ? "true" : "false");
+  }
+}
+
+function filterRegions(key) {
+  var q = ($(PICKERS[key].search).value || "").trim().toLowerCase();
+  var list = q
+    ? allCountries.filter(function (c) {
+        return c.name.toLowerCase().indexOf(q) !== -1 || c.code.indexOf(q) !== -1;
+      })
+    : allCountries;
+  renderRegions(key, list);
+}
+
+/* هر ۲.۲ ثانیه پینگ همه‌ی کشورها کمی جابه‌جا می‌شود (در هر دو تب یکسان) */
+function tickPings() {
+  var i, code, chip, nodes;
+  for (i = 0; i < allCountries.length; i++) {
+    code = allCountries[i].code;
+    var drift = rnd(2) ? (rnd(15) + 1) : -(rnd(15) + 1);
+    pings[code] = Math.max(9, Math.min(320, pings[code] + drift));
+  }
+  PICKER_KEYS.forEach(function (key) {
+    nodes = $(PICKERS[key].list).querySelectorAll(".cty");
+    for (var j = 0; j < nodes.length; j++) {
+      code = nodes[j].dataset.code;
+      chip = nodes[j].querySelector(".pg");
+      if (chip) {
+        chip.textContent = pings[code] + " ms";
+        chip.className = "pg " + pingClass(pings[code]);
+      }
+    }
+  });
+}
+setInterval(tickPings, 2200);
+
+PICKER_KEYS.forEach(function (key) {
+  $(PICKERS[key].search).addEventListener("input", function () { filterRegions(key); });
+  $(PICKERS[key].clear).addEventListener("click", function () {
+    $(PICKERS[key].search).value = "";
+    filterRegions(key);
+  });
+  renderRegions(key, allCountries);
+});
+
+/* =========================================================
+   ۶) ساخت کانفیگ WireGuard
+   ========================================================= */
+function buildConf(o) {
+  return [
+    "[Interface]",
+    "PrivateKey = " + o.privateKey,
+    "Address = " + o.addressV4 + "/32, " + o.addressV6 + "/128",
+    "DNS = " + o.dns,
+    "MTU = " + o.mtu,
+    "",
+    "[Peer]",
+    "PublicKey = " + o.peerPublicKey,
+    "Endpoint = " + o.endpoint
+  ].join("\n") + "\n";
+}
+
+function buildTxt(o, conf) {
+  var header = [
+    "# AHOORA — WireGuard Config",
+    "# Generated : " + o.createdAt,
+    "# Endpoint  : " + o.endpoint,
+    "# Country   : " + o.countryName + " (" + o.countryCode + ")",
+    "# DNS       : " + o.dns,
+    "# MTU       : " + o.mtu,
+    "# PublicKey : " + o.publicKey,
+    "# -----------------------------------------",
+    ""
+  ].join("\n");
+  return header + conf;
+}
+
+function generateWireGuard() {
+  var btn = $("#btnGenWg");
+  var code = state.selected.wg;
+  var country = allCountries.filter(function (c) { return c.code === code; })[0] || allCountries[0];
+  var mtu = $("#wgMtu").value;
+  var dns = $("#wgDns").value;
+
+  setBusy(btn, true);
+  var bar = $("#wgProgress");
+  bar.style.width = "0%";
+  setTimeout(function () { bar.style.width = "55%"; }, 60);
+
+  setTimeout(function () {
+    var kp = genKeypair();          /* جفت‌کلید واقعیِ کاربر */
+    var peerKp = genKeypair();      /* کلید عمومی تصادفیِ سمت مقابل */
+    var prefixes = v4Prefixes[code] || ["94.100"];
+
+    var addressV4 = randV4(prefixes);
+    var addressV6 = randV6(pick(v6Prefixes));
+    var endpoint = randV4(prefixes) + ":" + pick(WG_PORTS);
+
+    var obj = {
+      privateKey: kp.priv,
+      publicKey: kp.pub,
+      peerPublicKey: peerKp.pub,
+      addressV4: addressV4,
+      addressV6: addressV6,
+      endpoint: endpoint,
+      dns: dns,
+      mtu: mtu,
+      countryCode: country.code,
+      countryName: country.name,
+      ping: pings[code],
+      createdAt: new Date().toISOString()
+    };
+
+    var conf = buildConf(obj);
+    state.wg = { obj: obj, conf: conf, txt: buildTxt(obj, conf) };
+
+    $("#wgOut").textContent = conf;
+    $("#wgMeta").innerHTML = [
+      '<span class="chip ok">' + country.name + " " + country.flag + "</span>",
+      '<span class="chip">' + endpoint + "</span>",
+      '<span class="chip">' + pings[code] + " ms</span>",
+      '<span class="chip">MTU ' + mtu + "</span>"
+    ].join("");
+    $("#wgResult").classList.remove("hidden");
+    $("#wgResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    bar.style.width = "100%";
+    setTimeout(function () { bar.style.width = "0%"; }, 900);
+    toast("کانفیگ برای " + country.name + " ساخته شد ✅", "ok");
+    setBusy(btn, false);
+  }, 260);
+}
+
+$("#btnGenWg").addEventListener("click", generateWireGuard);
+
+$("#btnResetWg").addEventListener("click", function () {
+  state.wg = null;
+  $("#wgResult").classList.add("hidden");
+  $("#wgOut").textContent = "";
+  $("#wgMeta").innerHTML = "";
+  $("#wgProgress").style.width = "0%";
+  toast("پاک شد");
+});
+
+function wgFileName(ext) {
+  return safeName($("#wgName").value, "ahoora") + "." + ext;
+}
+
+function refreshNamePreviews() {
+  $("#wgNamePreview").textContent = wgFileName("conf");
+  $("#dnsNamePreview").textContent = safeName($("#dnsName").value, "dns_list") + ".txt";
+}
+$("#wgName").addEventListener("input", refreshNamePreviews);
+$("#dnsName").addEventListener("input", refreshNamePreviews);
+refreshNamePreviews();
+
+$("#dlConf").addEventListener("click", function () {
+  if (!state.wg) return toast("اول کانفیگ بساز", "err");
+  download(wgFileName("conf"), state.wg.conf, "application/octet-stream");
+  toast("فایل .conf دانلود شد", "ok");
+});
+
+$("#dlTxt").addEventListener("click", function () {
+  if (!state.wg) return toast("اول کانفیگ بساز", "err");
+  download(wgFileName("txt"), state.wg.txt, "text/plain");
+  toast("فایل .txt دانلود شد", "ok");
+});
+
+$("#dlJson").addEventListener("click", function () {
+  if (!state.wg) return toast("اول کانفیگ بساز", "err");
+  var o = state.wg.obj;
+  var payload = {
+    generatedAt: o.createdAt,
+    country: { code: o.countryCode, name: o.countryName },
+    ping: o.ping,
+    endpoint: o.endpoint,
+    mtu: Number(o.mtu),
+    dns: o.dns.split(",").map(function (s) { return s.trim(); }),
+    interface: {
+      privateKey: o.privateKey,
+      publicKey: o.publicKey,
+      address: [o.addressV4 + "/32", o.addressV6 + "/128"]
+    },
+    peer: {
+      publicKey: o.peerPublicKey,
+      endpoint: o.endpoint
+    }
+  };
+  download(wgFileName("json"), JSON.stringify(payload, null, 2), "application/json");
+  toast("فایل .json دانلود شد", "ok");
+});
+
+$("#copyConf").addEventListener("click", function () {
+  if (!state.wg) return toast("اول کانفیگ بساز", "err");
+  copyText(state.wg.conf)
+    .then(function () { toast("کانفیگ کپی شد ✅", "ok"); })
+    .catch(function () { toast("کپی نشد — دستی انتخاب کن", "err"); });
+});
+
+$("#copySub").addEventListener("click", function () {
+  if (!state.wg) return toast("اول کانفیگ بساز", "err");
+  var b64 = b64enc(new TextEncoder().encode(state.wg.conf));
+  copyText(b64)
+    .then(function () { toast("متن ساب (Base64) کپی شد ✅", "ok"); })
+    .catch(function () { toast("کپی نشد", "err"); });
+});
+
+/* =========================================================
+   ۷) لیست DNS / IP
+   ========================================================= */
+var DNS_COUNT = 2000;   /* تعداد ثابت — خروجی فقط IPv4 */
+
+function generateDnsList() {
+  var btn = $("#btnGenDns");
+  var count = DNS_COUNT;
+
+  setBusy(btn, true, " در حال ساخت...");
+  var bar = $("#dnsProgress");
+  bar.style.width = "0%";
+  setTimeout(function () { bar.style.width = "60%"; }, 60);
+
+  setTimeout(function () {
+    var lines = [];
+    var seen = Object.create(null);
+    var guard = 0;
+    while (lines.length < count && guard++ < count * 40) {
+        var prefixes = v4Prefixes[state.selected.dns] || ["94.100"];
+      var ip = randV4(prefixes);   /* IPv4 تصادفی در محدوده‌ی کشور انتخابی */
+
+      if (seen[ip]) continue;
+      seen[ip] = 1;
+      lines.push(ip);
+    }
+
+    var text = lines.join("\n") + "\n";
+    state.dns = { list: lines, text: text };
+
+    var name = safeName($("#dnsName").value, "dns_list");
+    download(name + ".txt", text, "text/plain");
+
+    $("#dnsMeta").innerHTML = [
+      '<span class="chip ok">' + lines.length + " آدرس</span>",
+      '<span class="chip">IPv4</span>',
+      '<span class="chip">' + name + ".txt</span>"
+    ].join("");
+    $("#dnsOut").textContent = lines.slice(0, 40).join("\n");
+    $("#dnsResult").classList.remove("hidden");
+    $("#dnsResult").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    bar.style.width = "100%";
+    setTimeout(function () { bar.style.width = "0%"; }, 900);
+    toast("فایل TXT با " + lines.length + " آدرس دانلود شد ✅", "ok");
+    setBusy(btn, false);
+  }, 300);
+}
+
+$("#btnGenDns").addEventListener("click", generateDnsList);
+
+$("#btnCopyDns").addEventListener("click", function () {
+  if (!state.dns) return toast("اول لیست بساز", "err");
+  copyText(state.dns.text)
+    .then(function () { toast("لیست کپی شد ✅", "ok"); })
+    .catch(function () { toast("کپی نشد", "err"); });
+});
+
+/* =========================================================
+   ۸) قفل ورود به پنل
+   ========================================================= */
+var PANEL_PASS = "AT_SERVER";
+var AUTH_KEY = "ahoora_auth";
+
+function unlockPanel() {
+  document.body.classList.remove("locked");
+  var el = $("#pass");
+  if (el) el.value = "";
+}
+
+function lockPanel() {
+  document.body.classList.add("locked");
+  state.wg = null;
+  state.dns = null;
+  $("#wgResult").classList.add("hidden");
+  $("#dnsResult").classList.add("hidden");
+  $("#wgOut").textContent = "";
+  $("#dnsOut").textContent = "";
+  $("#lockErr").textContent = "";
+  setTimeout(function () { var p = $("#pass"); if (p) p.focus(); }, 60);
+}
+
+(function initLock() {
+  try {
+    if (sessionStorage.getItem(AUTH_KEY) === "1") unlockPanel();
+  } catch (e) { /* حالت‌های محدود مرورگر */ }
+
+  $("#lockForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var val = ($("#pass").value || "").trim();
+    if (val === PANEL_PASS) {
+      try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
+      $("#lockErr").textContent = "";
+      unlockPanel();
+      toast("خوش آمدی 👋", "ok");
+    } else {
+      $("#lockErr").textContent = "رمز عبور اشتباه است";
+      $("#lock").classList.add("shake");
+      setTimeout(function () { $("#lock").classList.remove("shake"); }, 420);
+      var p = $("#pass");
+      p.value = "";
+      p.focus();
+    }
+  });
+
+  $("#btnLogout").addEventListener("click", function () {
+    try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {}
+    lockPanel();
+  });
+
+  if (document.body.classList.contains("locked")) {
+    var p = $("#pass");
+    if (p) p.focus();
+  }
+})();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5a0c10a99bc94ac',t:'MTc5NDYwNDEzMA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5a0c10a99bc94ac',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
